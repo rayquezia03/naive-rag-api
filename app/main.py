@@ -1,8 +1,10 @@
 import os
+import httpx
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
+from app.core.config import settings
 from app.routes.ingest import router as ingest_router
 from app.routes.chat import router as chat_router
 
@@ -37,4 +39,12 @@ async def index():
 
 @app.get("/health")
 async def health():
-    return {"status": "ok"}
+    try:
+        async with httpx.AsyncClient() as client:
+            r = await client.get(f"{settings.ollama_base_url}/api/tags", timeout=3.0)
+        ollama_ok = r.status_code == 200
+    except Exception:
+        ollama_ok = False
+
+    status = "ok" if ollama_ok else "degraded"
+    return {"status": status, "ollama": ollama_ok}

@@ -261,6 +261,12 @@
       background: var(--green);
       box-shadow: 0 0 7px var(--green);
       flex-shrink: 0;
+      transition: background .4s, box-shadow .4s;
+    }
+
+    .dot-online.offline {
+      background: #ef4444;
+      box-shadow: 0 0 7px #ef4444;
     }
 
     .topbar h2 {
@@ -657,10 +663,10 @@
 
   <main class="main">
     <div class="topbar">
-      <div class="dot-online"></div>
+      <div class="dot-online" id="statusDot"></div>
       <div>
         <h2>Chat com documentos</h2>
-        <p>Indexe um arquivo e comece a perguntar</p>
+        <p id="statusText">Indexe um arquivo e comece a perguntar</p>
       </div>
     </div>
 
@@ -682,6 +688,27 @@
   </main>
 
   <script>
+    const statusDot = document.getElementById('statusDot')
+    const statusText = document.getElementById('statusText')
+
+    async function checkHealth() {
+      try {
+        const res = await fetch('/health')
+        const data = await res.json()
+        const online = data.ollama === true
+        statusDot.classList.toggle('offline', !online)
+        statusText.textContent = online
+          ? 'Indexe um arquivo e comece a perguntar'
+          : 'Ollama offline — inicie com: ollama serve'
+      } catch {
+        statusDot.classList.add('offline')
+        statusText.textContent = 'API inacessível'
+      }
+    }
+
+    checkHealth()
+    setInterval(checkHealth, 30000)
+
     const feed = document.getElementById('feed')
     const input = document.getElementById('msgInput')
     const sendBtn = document.getElementById('sendBtn')

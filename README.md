@@ -1,104 +1,104 @@
-# Naive RAG — IPHAN Technical Challenge
+# Naive RAG — Desafio Técnico
 
-A REST API that implements **Naive RAG** (Retrieval-Augmented Generation) over Markdown documents, using FastAPI, LangChain, Ollama and ChromaDB.
+API REST que implementa **Naive RAG** (Retrieval-Augmented Generation) sobre documentos Markdown, utilizando FastAPI, LangChain, Ollama e ChromaDB.
 
 ---
 
-## Architecture
+## Arquitetura
 
 ```
-INGESTION FLOW
-──────────────
-Markdown file
+FLUXO DE INGESTÃO
+─────────────────
+Arquivo Markdown
     │
     ▼
 TextLoader  (LangChain)
-    │  reads raw text, preserves structure
+    │  lê o texto bruto preservando a estrutura
     ▼
 RecursiveCharacterTextSplitter  (LangChain)
-    │  splits on headings → paragraphs → sentences
+    │  divide por títulos → parágrafos → frases
     ▼
 OllamaEmbeddings  (nomic-embed-text)
-    │  converts each chunk to a dense vector
+    │  converte cada chunk em um vetor denso
     ▼
-ChromaDB  (persisted locally)
-    │  stores vectors + raw text + metadata
+ChromaDB  (persistido localmente)
+    │  armazena vetores + texto bruto + metadados
 
 
-QUERY FLOW
-──────────
-User question
+FLUXO DE CONSULTA
+─────────────────
+Pergunta do usuário
     │
     ▼
-OllamaEmbeddings  (same model)
-    │  encodes question into vector
+OllamaEmbeddings  (mesmo modelo)
+    │  codifica a pergunta em vetor
     ▼
 ChromaDB similarity_search
-    │  returns top-13 most similar chunks (k_fetch=13)
+    │  retorna os 13 chunks mais similares (k_fetch=13)
     ▼
 FlashrankRerank  (cross-encoder)
-    │  re-scores and reorders candidates, keeps top-8
+    │  reordena os candidatos, mantém os 8 mais relevantes
     ▼
 PromptTemplate
-    │  wraps retrieved chunks as numbered context around the question
+    │  monta o contexto numerado em torno da pergunta
     ▼
-OllamaLLM  (llama3:latest)
-    │  generates grounded answer
+OllamaLLM  (llama3.2:3b)
+    │  gera a resposta baseada no contexto
     ▼
-JSON response  { answer, sources: [{ chunk, score, source }] }
+Resposta JSON  { answer, sources: [{ chunk, score, source }] }
 ```
 
 ---
 
-## Chunking Strategy
+## Estratégia de Chunking
 
-**Method:** `RecursiveCharacterTextSplitter` with Markdown-aware separators.
+**Método:** `RecursiveCharacterTextSplitter` com separadores orientados a Markdown.
 
-The splitter attempts to break text at the following boundaries, in priority order:
+O splitter tenta dividir o texto nos seguintes limites, em ordem de prioridade:
 
-| Priority | Separator | Rationale |
-|----------|-----------|-----------|
-| 1 | `\n## ` | H2 heading — topic boundary |
-| 2 | `\n### ` | H3 heading — sub-topic boundary |
-| 3 | `\n#### ` | H4 heading |
-| 4 | `\n\n` | Paragraph break |
-| 5 | `\n` | Line break |
-| 6 | ` ` | Word boundary |
-| 7 | `""` | Character (last resort) |
+| Prioridade | Separador | Justificativa |
+|-----------|-----------|---------------|
+| 1 | `\n## ` | Título H2 — limite de tópico |
+| 2 | `\n### ` | Título H3 — limite de subtópico |
+| 3 | `\n#### ` | Título H4 |
+| 4 | `\n\n` | Quebra de parágrafo |
+| 5 | `\n` | Quebra de linha |
+| 6 | ` ` | Limite de palavra |
+| 7 | `""` | Caractere (último recurso) |
 
-**Parameters (configurable via `.env`):**
+**Parâmetros (configuráveis via `.env`):**
 
-| Parameter | Default | Reason |
-|-----------|---------|--------|
-| `CHUNK_SIZE` | 500 | Fits within the context window of small embedding models; large enough to carry a coherent idea |
-| `CHUNK_OVERLAP` | 50 | Prevents cutting off context at boundaries without significantly inflating storage |
+| Parâmetro | Padrão | Justificativa |
+|-----------|--------|---------------|
+| `CHUNK_SIZE` | 500 | Cabe na janela de contexto de modelos de embedding pequenos; grande o suficiente para preservar uma ideia coerente |
+| `CHUNK_OVERLAP` | 50 | Evita cortar o contexto nas bordas sem inflar significativamente o armazenamento |
 
-Prioritizing heading separators ensures semantically coherent chunks that stay within the same section, which improves retrieval precision for structured documents like specifications and reports.
-
----
-
-## Models
-
-| Role | Model | Notes |
-|------|-------|-------|
-| Embeddings | `nomic-embed-text` | Fast, high quality, runs locally via Ollama |
-| Chat / Generation | `llama3:latest` | 8B parameter model; configurable via `.env` |
+Priorizar separadores de título garante chunks semanticamente coerentes que permanecem dentro da mesma seção, o que melhora a precisão do retrieval em documentos estruturados como especificações e relatórios.
 
 ---
 
-## Prerequisites
+## Modelos
+
+| Função | Modelo | Observações |
+|--------|--------|-------------|
+| Embeddings | `nomic-embed-text` | Rápido, alta qualidade, executa localmente via Ollama |
+| Chat / Geração | `llama3.2:3b` | Modelo de 3B parâmetros; configurável via `.env` |
+
+---
+
+## Pré-requisitos
 
 - Python 3.10+
-- [Ollama](https://ollama.com/download) installed and running
+- [Ollama](https://ollama.com/download) instalado e em execução
 
-1. Pull the required models:
+1. Baixe os modelos necessários:
 
 ```bash
-ollama pull llama3
+ollama pull llama3.2:3b
 ollama pull nomic-embed-text
 ```
 
-2. Ensure Ollama is running:
+2. Certifique-se de que o Ollama está rodando:
 
 ```bash
 ollama serve
@@ -106,31 +106,31 @@ ollama serve
 
 ---
 
-## Setup & Run
+## Instalação e Execução
 
 ```bash
-# Clone / enter the project
+# Acesse o diretório do projeto
 cd iphan-project
 
-# Create virtual environment (Python 3.10+)
+# Crie o ambiente virtual (Python 3.10+)
 python -m venv .venv
 source .venv/bin/activate
 
-# Install dependencies
+# Instale as dependências
 pip install -r requirements.txt
 
-# (Optional) adjust models or chunk size
-# edit .env
+# (Opcional) ajuste modelos ou tamanho do chunk
+# edite o arquivo .env
 
-# Start the API
+# Inicie a API
 uvicorn app.main:app --reload
 ```
 
-> **Note:** On the first request that triggers re-ranking, Flashrank will automatically download a small cross-encoder model (~80 MB). Ensure internet access is available on first run.
+> **Atenção:** Na primeira requisição que acionar o re-ranking, o Flashrank fará o download automático de um modelo cross-encoder pequeno (~80 MB). Certifique-se de ter acesso à internet na primeira execução.
 
-The API will be available at `http://localhost:8000`.  
-Interactive docs: `http://localhost:8000/docs`  
-Web interface: `http://localhost:8000`
+A API estará disponível em `http://localhost:8000`.  
+Documentação interativa: `http://localhost:8000/docs`  
+Interface web: `http://localhost:8000`
 
 ---
 
@@ -138,108 +138,112 @@ Web interface: `http://localhost:8000`
 
 ### `POST /ingest`
 
-Upload a Markdown file to index it.
+Envia um arquivo Markdown para indexação.
 
 ```bash
 curl -X POST http://localhost:8000/ingest \
-  -F "file=@my_document.md"
+  -F "file=@meu_documento.md"
 ```
 
-Response:
+Resposta:
 ```json
-{ "chunks_stored": 12, "filename": "my_document.md" }
+{ "chunks_stored": 12, "filename": "meu_documento.md" }
 ```
 
-Only `.md` files are accepted. Uploading other formats returns HTTP 400.
+Apenas arquivos `.md` são aceitos. Outros formatos retornam HTTP 400.
 
 ---
 
 ### `POST /chat`
 
-Ask a question over the indexed documents.
+Realiza uma pergunta sobre os documentos indexados.
 
 ```bash
 curl -X POST http://localhost:8000/chat \
   -H "Content-Type: application/json" \
-  -d '{"message": "What is the main objective of the document?"}'
+  -d '{"message": "Qual é o objetivo principal do documento?"}'
 ```
 
-Response:
+Resposta:
 ```json
 {
-  "answer": "The main objective is ...",
+  "answer": "O objetivo principal é ...",
   "sources": [
     {
       "chunk": "...",
       "score": 0.9241,
-      "source": "my_document.md"
+      "source": "meu_documento.md"
     }
   ]
 }
 ```
 
-> **Score note:** After re-ranking, the score is a **relevance score** (higher = more relevant). A score near `1.0` indicates a very strong match between the chunk and the question.
+> **Nota sobre o score:** Após o re-ranking, o score é uma **pontuação de relevância** (maior = mais relevante). Um valor próximo de `1.0` indica correspondência muito forte entre o chunk e a pergunta.
 
 ---
 
 ### `GET /health`
 
+Verifica se a API e o Ollama estão operacionais.
+
 ```bash
 curl http://localhost:8000/health
-# {"status": "ok"}
+# {"status": "ok", "ollama": true}
 ```
 
 ---
 
-## Bonus Features
+## Funcionalidades Bônus
 
 ### RF-B01 — Re-ranking
 
-After the initial similarity search, a **FlashrankRerank** cross-encoder re-scores each candidate chunk against the question. This two-stage approach compensates for the semantic gap between embedding similarity and actual relevance:
+Após a busca inicial por similaridade, um cross-encoder **FlashrankRerank** reavalia cada chunk candidato em relação à pergunta. Essa abordagem em dois estágios compensa a lacuna semântica entre similaridade de embeddings e relevância real:
 
-- Stage 1 (recall): ChromaDB fetches the top 13 candidates by vector similarity
-- Stage 2 (precision): Flashrank re-scores and reorders them, keeping the top 8
+- Estágio 1 (revocação): ChromaDB busca os 13 candidatos mais similares por vetor
+- Estágio 2 (precisão): Flashrank reavalia e reordena, mantendo os 8 mais relevantes
 
-Flashrank uses a lightweight cross-encoder model that runs locally with no GPU or PyTorch dependency.
+O Flashrank utiliza um modelo cross-encoder leve que executa localmente, sem necessidade de GPU ou PyTorch.
 
-### RF-B02 — Web Interface
+### RF-B02 — Interface Web
 
-A single-page interface is served at `http://localhost:8000` with:
+Uma interface single-page é servida em `http://localhost:8000` com:
 
-- Drag-and-drop file upload
-- Chat interface with typing animation
-- Collapsible source panels with color-coded relevance scores
-- List of indexed files in the sidebar
-
----
-
-## Limitations
-
-- **Only Markdown (`.md`) files** are supported by design.
-- The vector store is **not scoped per session** — all ingested documents share the same Chroma collection. Querying always searches across all indexed content.
-- Small local models may produce incomplete answers for broad questions that require synthesizing multiple document sections. More specific questions yield more accurate results.
-- No authentication or rate limiting is implemented — this is a local development setup.
-- ChromaDB stores vectors on disk in `./vector_store`. Deleting this folder clears all indexed documents.
+- Upload de arquivos por clique ou arrastar e soltar
+- Chat com animação de digitação
+- Painéis de fontes recolhíveis com scores coloridos por relevância
+- Lista de arquivos indexados na barra lateral
+- Indicador de status do Ollama em tempo real
 
 ---
 
-## Project Structure
+## Limitações
+
+- **Apenas arquivos Markdown (`.md`)** são suportados por definição do projeto.
+- O vector store **não é isolado por sessão** — todos os documentos ingeridos compartilham a mesma coleção do Chroma. As consultas sempre buscam em todo o conteúdo indexado.
+- Modelos locais pequenos podem produzir respostas incompletas para perguntas amplas que exigem síntese de múltiplas seções do documento. Perguntas mais específicas geram respostas mais precisas.
+- Nenhuma autenticação ou limitação de requisições está implementada — trata-se de um ambiente de desenvolvimento local.
+- O ChromaDB armazena os vetores em disco em `./vector_store`. Apagar essa pasta remove todos os documentos indexados.
+
+---
+
+## Estrutura do Projeto
 
 ```
 iphan-project/
 ├── app/
-│   ├── main.py              # FastAPI app + router registration + web interface
+│   ├── main.py              # Aplicação FastAPI + registro de rotas + interface web
 │   ├── core/
-│   │   └── config.py        # Settings from .env
+│   │   └── config.py        # Configurações lidas do .env
 │   ├── routes/
 │   │   ├── ingest.py        # POST /ingest
 │   │   └── chat.py          # POST /chat
 │   ├── services/
-│   │   ├── ingestion.py     # Load → chunk → embed → store
-│   │   └── retrieval.py     # Retrieve → re-rank → prompt → generate
+│   │   ├── vector_store.py  # Singleton do ChromaDB
+│   │   ├── ingestion.py     # Carregar → chunkar → embedar → armazenar
+│   │   └── retrieval.py     # Recuperar → re-rankar → promtar → gerar
 │   └── static/
-│       └── index.html       # Single-page web interface
-├── .env                     # Default configuration
+│       └── index.html       # Interface web single-page
+├── .env                     # Configuração padrão
 ├── requirements.txt
 └── README.md
 ```
